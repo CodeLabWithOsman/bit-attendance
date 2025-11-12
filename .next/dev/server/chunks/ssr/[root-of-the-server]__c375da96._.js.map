@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 10, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/HiddenEye/bit-attendance/app/layout.tsx"],"sourcesContent":["\"use client\"\n\nimport { ThemeProvider } from \"next-themes\"\nimport './globals.css'\n\nexport default function RootLayout({\n  children,\n}: Readonly<{\n  children: React.ReactNode\n}>) {\n  return (\n    <html lang=\"en\" suppressHydrationWarning>\n      <head>\n        <title>BIT GROUP C - Attendance System</title>\n        <meta name=\"description\" content=\"BIT Group C Attendance System\" />\n      </head>\n      <body className=\"font-sans antialiased\">\n        <ThemeProvider attribute=\"class\" defaultTheme=\"system\" enableSystem>\n          {children}\n        </ThemeProvider>\n      </body>\n    </html>\n  )\n}\n"],"names":[],"mappings":";;;;;AAEA;AAFA;;;;AAKe,SAAS,WAAW,EACjC,QAAQ,EAGR;IACA,qBACE,8OAAC;QAAK,MAAK;QAAK,wBAAwB;;0BACtC,8OAAC;;kCACC,8OAAC;kCAAM;;;;;;kCACP,8OAAC;wBAAK,MAAK;wBAAc,SAAQ;;;;;;;;;;;;0BAEnC,8OAAC;gBAAK,WAAU;0BACd,cAAA,8OAAC,iKAAa;oBAAC,WAAU;oBAAQ,cAAa;oBAAS,YAAY;8BAChE;;;;;;;;;;;;;;;;;AAKX","debugId":null}}]
-}

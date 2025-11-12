@@ -1,20 +1,49 @@
 {
   "pages": {
-    "/_app": []
+    "/": [
+      "static/chunks/c3d1891d13a97c9e.js",
+      "static/chunks/d23789ea24734f35.js",
+      "static/chunks/eefc63b864be81ee.js",
+      "static/chunks/turbopack-62405484c56a4668.js"
+    ],
+    "/_app": [
+      "static/chunks/eaa5a8c7af56f69c.js",
+      "static/chunks/d23789ea24734f35.js",
+      "static/chunks/eefc63b864be81ee.js",
+      "static/chunks/75e2ed92aa5dbdc5.css",
+      "static/chunks/turbopack-c20fe49268a0542a.js"
+    ],
+    "/_error": [
+      "static/chunks/38508aeb32b31232.js",
+      "static/chunks/d23789ea24734f35.js",
+      "static/chunks/eefc63b864be81ee.js",
+      "static/chunks/turbopack-b4471751ad994650.js"
+    ],
+    "/about": [
+      "static/chunks/7302ab7bcf79737a.js",
+      "static/chunks/d23789ea24734f35.js",
+      "static/chunks/eefc63b864be81ee.js",
+      "static/chunks/turbopack-1c58a23f653dfe79.js"
+    ],
+    "/attendance": [
+      "static/chunks/fd0ae59c877b75d7.js",
+      "static/chunks/d23789ea24734f35.js",
+      "static/chunks/eefc63b864be81ee.js",
+      "static/chunks/turbopack-6665d6695499d852.js"
+    ],
+    "/tryhackme": [
+      "static/chunks/eb7091723dfe0ca2.js",
+      "static/chunks/eefc63b864be81ee.js",
+      "static/chunks/d23789ea24734f35.js",
+      "static/chunks/c619ea6b2c233d41.js",
+      "static/chunks/turbopack-1fe39d3c264a6d1c.js"
+    ]
   },
   "devFiles": [],
-  "polyfillFiles": [
-    "static/chunks/a6dad97d9634a72d.js"
-  ],
+  "polyfillFiles": [],
   "lowPriorityFiles": [
-    "static/ESCkyJSilfm-UvPEoJH5g/_ssgManifest.js",
-    "static/ESCkyJSilfm-UvPEoJH5g/_buildManifest.js"
+    "static/wEsgiFaYAaxKVsVT-qWUJ/_ssgManifest.js",
+    "static/wEsgiFaYAaxKVsVT-qWUJ/_buildManifest.js"
   ],
-  "rootMainFiles": [
-    "static/chunks/fbc3aa4002607370.js",
-    "static/chunks/29bdd735087d69e6.js",
-    "static/chunks/ff07fd46409b0e0a.js",
-    "static/chunks/70af3a54428c1e77.js",
-    "static/chunks/turbopack-dbc98e31b79fedab.js"
-  ]
+  "rootMainFiles": []
 }

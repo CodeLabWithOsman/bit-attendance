@@ -1,9 +1,8 @@
-name: Deploy to GitHub Pages
+name: Deploy Next.js to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,45 +11,31 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-        
+          cache: 'npm'
+      
       - name: Install dependencies
         run: npm ci
-        
-      - name: Build with Next.js
+      
+      - name: Build Next.js
         run: npm run build
         env:
           NODE_ENV: production
-          
-      - name: Rename _next to next (GitHub Pages fix)
-        run: |
-          cd out
-          if [ -d "_next" ]; then
-            echo "Renaming _next to next..."
-            mv _next next
-            echo "Updating HTML files..."
-            find . -name "*.html" -type f -exec sed -i 's/_next/next/g' {} +
-            find . -name "*.js" -type f -exec sed -i 's/_next/next/g' {} +
-            echo "Done! Listing contents:"
-            ls -la
-          fi
-        
+      
+      - name: Add .nojekyll
+        run: touch out/.nojekyll
+      
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -66,4 +51,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-

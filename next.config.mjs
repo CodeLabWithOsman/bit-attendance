@@ -2,14 +2,14 @@
 const nextConfig = {
   output: 'export',
   basePath: '/bit-attendance',
-  trailingSlash: true,
-  distDir: '.next',
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  assetPrefix: '/bit-attendance',
   images: {
     unoptimized: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
   },
 }
 
 export default nextConfig
+
