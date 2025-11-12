@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/bit-attendance/static/css/main.bf266744.css",
+    "main.js": "/bit-attendance/static/js/main.f5559a60.js",
+    "index.html": "/bit-attendance/index.html",
+    "main.bf266744.css.map": "/bit-attendance/static/css/main.bf266744.css.map",
+    "main.f5559a60.js.map": "/bit-attendance/static/js/main.f5559a60.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.bf266744.css",
+    "static/js/main.f5559a60.js"
+  ]
+}
