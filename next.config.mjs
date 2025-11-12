@@ -2,7 +2,6 @@
 const nextConfig = {
   output: 'export',
   basePath: '/bit-attendance',
-  assetPrefix: '/bit-attendance/',
   trailingSlash: true,
   typescript: {
     ignoreBuildErrors: true,
