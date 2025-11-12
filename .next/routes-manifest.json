@@ -38,13 +38,7 @@
   ],
   "headers": [],
   "rewrites": {
-    "beforeFiles": [
-      {
-        "source": "/bit-attendance//_next/:path+",
-        "destination": "/bit-attendance/_next/:path+",
-        "regex": "^/bit-attendance//_next(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))(?:/)?$"
-      }
-    ],
+    "beforeFiles": [],
     "afterFiles": [],
     "fallback": []
   },
