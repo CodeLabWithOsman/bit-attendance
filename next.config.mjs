@@ -3,6 +3,7 @@ const nextConfig = {
   output: 'export',
   basePath: '/bit-attendance',
   trailingSlash: true,
+  distDir: '.next',
   typescript: {
     ignoreBuildErrors: true,
   },

@@ -38,14 +38,18 @@ jobs:
         env:
           NODE_ENV: production
           
-      - name: List out directory contents
+      - name: Rename _next to next (GitHub Pages fix)
         run: |
-          echo "Checking out directory contents:"
-          ls -la out/
-          echo "Checking _next directory:"
-          ls -la out/_next/
-          echo "Checking _next/static:"
-          ls -la out/_next/static/
+          cd out
+          if [ -d "_next" ]; then
+            echo "Renaming _next to next..."
+            mv _next next
+            echo "Updating HTML files..."
+            find . -name "*.html" -type f -exec sed -i 's/_next/next/g' {} +
+            find . -name "*.js" -type f -exec sed -i 's/_next/next/g' {} +
+            echo "Done! Listing contents:"
+            ls -la
+          fi
         
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
