@@ -29,8 +29,6 @@ jobs:
           
       - name: Setup Pages
         uses: actions/configure-pages@v4
-        with:
-          static_site_generator: next
         
       - name: Install dependencies
         run: npm ci
@@ -45,7 +43,9 @@ jobs:
           echo "Checking out directory contents:"
           ls -la out/
           echo "Checking _next directory:"
-          ls -la out/_next/ || echo "_next directory not found!"
+          ls -la out/_next/
+          echo "Checking _next/static:"
+          ls -la out/_next/static/
         
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
