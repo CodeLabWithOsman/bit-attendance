@@ -16,6 +16,8 @@ interface PinVerificationProps {
   onCancel: () => void
 }
 
+const SECRET_KEY = "kissmeifyoucan"
+
 export default function PinVerification({ student, onVerified, onCancel }: PinVerificationProps) {
   const [pin, setPin] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -30,8 +32,17 @@ export default function PinVerification({ student, onVerified, onCancel }: PinVe
       return
     }
 
+    // Check if secret key for protected students
+    if (pin === SECRET_KEY) {
+      setIsLoading(true)
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      onVerified(pin)
+      setIsLoading(false)
+      return
+    }
+
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 500)) // Simulate verification delay
+    await new Promise((resolve) => setTimeout(resolve, 500))
     onVerified(pin)
     setIsLoading(false)
   }

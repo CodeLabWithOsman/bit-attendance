@@ -1,6 +1,6 @@
 "use client"
-import { Menu, X } from "lucide-react"
-import { useState } from "react"
+import { Menu, X, Sun, Moon } from "lucide-react"
+import { useState, useEffect } from "react"
 
 interface NavigationBarProps {
   onNavigate?: (page: string) => void
@@ -8,6 +8,24 @@ interface NavigationBarProps {
 
 export default function NavigationBar({ onNavigate }: NavigationBarProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isDark, setIsDark] = useState(true)
+
+  useEffect(() => {
+    // Check for saved theme preference or default to dark
+    const savedTheme = localStorage.getItem("theme")
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+    const initialDark = savedTheme === "dark" || (!savedTheme && prefersDark)
+    
+    setIsDark(initialDark)
+    document.documentElement.classList.toggle("dark", initialDark)
+  }, [])
+
+  const toggleTheme = () => {
+    const newDark = !isDark
+    setIsDark(newDark)
+    document.documentElement.classList.toggle("dark", newDark)
+    localStorage.setItem("theme", newDark ? "dark" : "light")
+  }
 
   const handleClick = (page: string) => {
     onNavigate?.(page)
@@ -32,7 +50,7 @@ export default function NavigationBar({ onNavigate }: NavigationBarProps) {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-6">
             <button
               onClick={() => handleClick("home")}
               className="text-foreground/70 hover:text-foreground transition-colors font-medium"
@@ -51,49 +69,81 @@ export default function NavigationBar({ onNavigate }: NavigationBarProps) {
             >
               About
             </button>
+            
+            {/* Theme Toggle */}
             <button
-              onClick={() => handleClick("tryhackme")}
-              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-muted transition-all duration-300"
+              aria-label="Toggle theme"
             >
-              Panel
+              <div className="relative w-6 h-6">
+                <Sun 
+                  size={20} 
+                  className={`absolute inset-0 transition-all duration-300 ${
+                    isDark ? 'opacity-0 rotate-90 scale-0' : 'opacity-100 rotate-0 scale-100'
+                  }`}
+                />
+                <Moon 
+                  size={20} 
+                  className={`absolute inset-0 transition-all duration-300 ${
+                    isDark ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'
+                  }`}
+                />
+              </div>
             </button>
           </div>
 
           {/* Mobile menu button */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden p-2 hover:bg-muted rounded-lg transition-colors"
-          >
-            {isOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-muted transition-all duration-300"
+              aria-label="Toggle theme"
+            >
+              <div className="relative w-5 h-5">
+                <Sun 
+                  size={18} 
+                  className={`absolute inset-0 transition-all duration-300 ${
+                    isDark ? 'opacity-0 rotate-90 scale-0' : 'opacity-100 rotate-0 scale-100'
+                  }`}
+                />
+                <Moon 
+                  size={18} 
+                  className={`absolute inset-0 transition-all duration-300 ${
+                    isDark ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-0'
+                  }`}
+                />
+              </div>
+            </button>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="p-2 hover:bg-muted rounded-lg transition-colors"
+            >
+              {isOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Navigation */}
         {isOpen && (
-          <div className="md:hidden pb-4 border-t border-border">
+          <div className="md:hidden pb-4 border-t border-border animate-in slide-in-from-top-2 duration-200">
             <button
               onClick={() => handleClick("home")}
-              className="block w-full text-left px-4 py-2 text-foreground/70 hover:text-foreground transition-colors"
+              className="block w-full text-left px-4 py-3 text-foreground/70 hover:text-foreground hover:bg-muted transition-colors"
             >
               Home
             </button>
             <button
               onClick={() => handleClick("admin")}
-              className="block w-full text-left px-4 py-2 text-foreground/70 hover:text-foreground transition-colors"
+              className="block w-full text-left px-4 py-3 text-foreground/70 hover:text-foreground hover:bg-muted transition-colors"
             >
               Admin
             </button>
             <button
               onClick={() => handleClick("about")}
-              className="block w-full text-left px-4 py-2 text-foreground/70 hover:text-foreground transition-colors"
+              className="block w-full text-left px-4 py-3 text-foreground/70 hover:text-foreground hover:bg-muted transition-colors"
             >
               About
-            </button>
-            <button
-              onClick={() => handleClick("tryhackme")}
-              className="block w-full text-left px-4 py-2 text-indigo-500 hover:text-indigo-400 transition-colors font-medium"
-            >
-              Admin Panel
             </button>
           </div>
         )}
