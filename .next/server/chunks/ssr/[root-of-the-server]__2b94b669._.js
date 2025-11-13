@@ -1,3 +1,0 @@
-module.exports=[8171,(a,b,c)=>{b.exports=a.x("react/jsx-runtime",()=>require("react/jsx-runtime"))},6195,a=>a.a(async(b,c)=>{try{let b=await a.y("next-themes");a.n(b),c()}catch(a){c(a)}},!0),7298,a=>a.a(async(b,c)=>{try{var d=a.i(8171),e=a.i(6195),f=b([e]);function g({Component:a,pageProps:b}){return(0,d.jsx)(e.ThemeProvider,{attribute:"class",defaultTheme:"system",enableSystem:!0,children:(0,d.jsx)(a,{...b})})}[e]=f.then?(await f)():f,a.s(["default",()=>g]),c()}catch(a){c(a)}},!1)];
-
-//# sourceMappingURL=%5Broot-of-the-server%5D__2b94b669._.js.map

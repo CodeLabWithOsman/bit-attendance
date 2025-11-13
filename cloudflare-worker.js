@@ -1,626 +1,559 @@
-// Cloudflare Worker Backend for BIT GROUP C Attendance System
-// Deploy at: https://every.pupujiger.workers.dev/
+// Cloudflare Worker for BIT GROUP C Attendance System
+// Deploy this to Cloudflare Workers at: every.pupujiger.workers.dev
+// Powered by Alien Technology from Pluto
 
-const ADMIN_PINCODE = 'PINCODE';
-const PROTECTED_SECRET_KEY = 'kissmeifyoucan';
+const PASTEBIN_API_KEY = "Ekj5p2bNNepuGxI_QKvAgFlETVbztESk"
+const PASTEBIN_PASTE_ID = "s3rjsTJg"
+const PASTEBIN_RAW_URL = `https://pastebin.com/raw/${PASTEBIN_PASTE_ID}`
+const PASTEBIN_API_URL = "https://pastebin.com/api/api_post.php"
+const PROTECTED_STUDENTS = ["1686468923", "1685397148", "1700493421"]
+const ADMIN_PINCODE = "PINCODE" // Admin authentication PIN
 
-// Protected students - cannot be deleted, edited, or blacklisted
-const PROTECTED_STUDENTS = ['1686468923', '1685397148', '1700493421'];
+// GCTU Campus coordinates (Ghana Communication Technology University - Tesano Campus)
+const GCTU_LOCATION = {
+  latitude: 5.6519,
+  longitude: -0.2173,
+  radiusMeters: 500 // 500 meters (~6-7 minutes walk)
+}
 
-// Course reps contact info
+// Course Representatives
 const COURSE_REPS = [
-  { name: 'Myles', phone: '0500776941' },
-  { name: 'Dhonzy', phone: '0245222358' }
-];
+  {
+    name: "Myles",
+    phone: "0500776941",
+    whatsapp: "https://wa.me/233500776941"
+  },
+  {
+    name: "Dhonzy",
+    phone: "0345222358",
+    whatsapp: "https://wa.me/233345222358"
+  },
+  {
+    name: "Admin",
+    phone: "0245222358",
+    whatsapp: "https://wa.me/233245222358"
+  }
+]
 
-// GCTU Campus coordinates (approximate)
-const CAMPUS_LOCATION = {
-  latitude: 5.6513,
-  longitude: -0.0646,
-  radiusMeters: 500 // 500 meters radius
-};
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
-
-// Helper: Calculate distance between two coordinates (Haversine formula)
+// Calculate distance between two coordinates using Haversine formula
 function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371e3; // Earth radius in meters
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const R = 6371e3 // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180
+  const φ2 = lat2 * Math.PI / 180
+  const Δφ = (lat2 - lat1) * Math.PI / 180
+  const Δλ = (lon2 - lon1) * Math.PI / 180
 
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
 
-  return R * c; // Distance in meters
+  return R * c // Distance in meters
 }
 
-// Helper: Check if location is within campus
-function isWithinCampus(lat, lon, strictMode) {
-  if (!strictMode) return true;
-  const distance = calculateDistance(
-    lat,
-    lon,
-    CAMPUS_LOCATION.latitude,
-    CAMPUS_LOCATION.longitude
-  );
-  return distance <= CAMPUS_LOCATION.radiusMeters;
+// Default data structure
+const DEFAULT_DATA = {
+  students: [
+    {
+      id: "1686468923",
+      name: "Osman Mohammed Abutazure",
+      indexNumber: "1686468923",
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "1685397148",
+      name: "Portia Awusi Atsu",
+      indexNumber: "1685397148",
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "1700493421",
+      name: "Princess Asiedua Annor",
+      indexNumber: "1700493421",
+      createdAt: new Date().toISOString(),
+    },
+  ],
+  attendance: [],
+  blacklist: [],
+  adminLogs: [],
+  fraudAttempts: [],
+  settings: {
+    attendanceEnabled: false,
+    attendanceStarted: false,
+    strictMode: false,
+    strictModeRadius: 500,
+  },
+  courseReps: COURSE_REPS,
 }
 
-// Helper: Generate device fingerprint hash
-function hashDeviceId(ip, deviceId, date) {
-  const data = `${ip}-${deviceId}-${date}`;
-  return btoa(data);
+// Fetch current data from Pastebin
+async function getPastebinData() {
+  try {
+    const response = await fetch(PASTEBIN_RAW_URL)
+    if (!response.ok) return DEFAULT_DATA
+    const text = await response.text()
+    return JSON.parse(text)
+  } catch (error) {
+    console.error("[Worker] Error fetching from Pastebin:", error)
+    return DEFAULT_DATA
+  }
 }
 
-// Helper: Check if student is protected
-function isProtected(index) {
-  return PROTECTED_STUDENTS.includes(index);
-}
+// Update Pastebin paste
+async function updatePastebin(data) {
+  try {
+    const params = new URLSearchParams()
+    params.append("api_dev_key", PASTEBIN_API_KEY)
+    params.append("api_option", "paste")
+    params.append("api_paste_key", PASTEBIN_PASTE_ID)
+    params.append("api_paste_code", JSON.stringify(data, null, 2))
+    params.append("api_paste_private", "1")
+    params.append("api_paste_name", "BIT Attendance Data")
 
-// Helper: Log activity
-async function logActivity(env, action, details) {
-  const logs = (await env.ATTENDANCE_KV.get('activity_logs', { type: 'json' })) || [];
-  logs.push({
-    id: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
-    action,
-    details,
-  });
-  await env.ATTENDANCE_KV.put('activity_logs', JSON.stringify(logs));
-}
-
-// API Handlers
-
-async function handleGetStats(env) {
-  const students = (await env.ATTENDANCE_KV.get('students', { type: 'json' })) || [];
-  const attendance = (await env.ATTENDANCE_KV.get('attendance', { type: 'json' })) || [];
-  const attendanceEnabled =
-    (await env.ATTENDANCE_KV.get('attendance_enabled')) === 'true';
-
-  const today = new Date().toISOString().split('T')[0];
-  const presentToday = attendance.filter((a) => a.date === today).length;
-
-  // Always include protected students in count
-  const protectedCount = PROTECTED_STUDENTS.length;
-
-  return {
-    success: true,
-    total: students.length,
-    present: Math.max(presentToday, protectedCount),
-    attendanceEnabled,
-  };
-}
-
-async function handleSearchStudent(env, request) {
-  const { query } = await request.json();
-  const students = (await env.ATTENDANCE_KV.get('students', { type: 'json' })) || [];
-
-  const isIndexSearch = /^\d+$/.test(query);
-  const results = students
-    .filter((s) => {
-      if (isIndexSearch) {
-        return s.index.includes(query);
-      } else {
-        return s.name.toLowerCase().includes(query.toLowerCase());
-      }
+    const response = await fetch(PASTEBIN_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
     })
-    .slice(0, 10)
-    .map((s) => ({
-      displayValue: isIndexSearch ? s.index : s.name,
-      searchType: isIndexSearch ? 'index' : 'name',
-      studentData: s,
-    }));
 
-  return { success: true, results };
+    const result = await response.text()
+    return !result.includes("error") && result.length > 0
+  } catch (error) {
+    console.error("[Worker] Error updating Pastebin:", error)
+    return false
+  }
 }
 
-async function handleVerifyStudent(env, request) {
-  const { student, pin, deviceId, latitude, longitude } = await request.json();
-  const clientIP = request.headers.get('CF-Connecting-IP');
-  const today = new Date().toISOString().split('T')[0];
-
-  // Check if it's a protected student with secret key
-  if (pin === PROTECTED_SECRET_KEY) {
-    return {
-      success: true,
-      isProtected: true,
-      message: 'Welcome, protected student. You have unlimited access.',
-    };
-  }
-
-  // Check if attendance is enabled
-  const attendanceEnabled =
-    (await env.ATTENDANCE_KV.get('attendance_enabled')) === 'true';
-  if (!attendanceEnabled) {
-    return {
-      success: false,
-      message: 'Go and sit down, it\'s not time for attendance taking.',
-    };
-  }
-
-  // Check blacklist
-  const blacklist = (await env.ATTENDANCE_KV.get('blacklist', { type: 'json' })) || [];
-  const blacklistEntry = blacklist.find((b) => b.index === student.index);
-  
-  if (blacklistEntry && blacklistEntry.status === 'active') {
-    const expiryDate = blacklistEntry.expiryDate;
-    if (expiryDate === 'indefinite' || new Date(expiryDate) > new Date()) {
-      return {
-        success: false,
-        blacklisted: true,
-        message: `You have been blacklisted for violating the rules. ${
-          blacklistEntry.reason || ''
-        }`,
-        contactInfo: COURSE_REPS,
-      };
-    }
-  }
-
-  // Check strict mode (location verification)
-  const strictMode = (await env.ATTENDANCE_KV.get('strict_mode')) === 'true';
-  if (strictMode && latitude && longitude) {
-    if (!isWithinCampus(latitude, longitude, strictMode)) {
-      return {
-        success: false,
-        message:
-          'You are not within campus premises. Please contact the admin or course rep to mark your attendance.',
-        contactInfo: COURSE_REPS,
-      };
-    }
-  }
-
-  // Verify PIN
-  let pinValid = false;
-  if (student.searchType === 'index') {
-    // User searched by index, ask for last name
-    const lastName = student.studentData.name.split(' ').pop();
-    pinValid = lastName.toLowerCase() === pin.toLowerCase();
-  } else {
-    // User searched by name, ask for last 5 digits of index
-    pinValid = student.studentData.index.slice(-5) === pin;
-  }
-
-  if (!pinValid) {
-    // Track fraud attempts
-    const fraudAttempts =
-      (await env.ATTENDANCE_KV.get('fraud_attempts', { type: 'json' })) || [];
-    const recentAttempts = fraudAttempts.filter(
-      (f) => f.deviceId === deviceId && f.date === today
-    );
-
-    if (recentAttempts.length >= 2) {
-      // Third strike - blacklist
-      blacklist.push({
-        id: crypto.randomUUID(),
-        name: student.studentData.name,
-        index: student.studentData.index,
-        reason: 'Multiple fraud attempts',
-        date: today,
-        expiryDate: 'indefinite',
-        status: 'active',
-      });
-      await env.ATTENDANCE_KV.put('blacklist', JSON.stringify(blacklist));
-
-      // Void any attendance for today
-      const attendance =
-        (await env.ATTENDANCE_KV.get('attendance', { type: 'json' })) || [];
-      const filtered = attendance.filter(
-        (a) => !(a.index === student.studentData.index && a.date === today)
-      );
-      await env.ATTENDANCE_KV.put('attendance', JSON.stringify(filtered));
-
-      await logActivity(env, 'FRAUD_BLACKLIST', {
-        student: student.studentData,
-        ip: clientIP,
-      });
-
-      return {
-        success: false,
-        blacklisted: true,
-        message:
-          'You have been blacklisted for multiple fraud attempts. Your attendance has been voided.',
-      };
-    }
-
-    // Log attempt
-    fraudAttempts.push({
-      id: crypto.randomUUID(),
-      deviceId,
-      ip: clientIP,
-      student: student.studentData,
-      date: today,
-      timestamp: new Date().toISOString(),
-    });
-    await env.ATTENDANCE_KV.put('fraud_attempts', JSON.stringify(fraudAttempts));
-
-    return {
-      success: false,
-      strikes: recentAttempts.length + 1,
-      message:
-        recentAttempts.length === 0
-          ? 'Invalid PIN. One more attempt and you will be warned.'
-          : 'Wrong again! One more attempt and you will be blacklisted.',
-    };
-  }
-
-  return { success: true };
-}
-
-async function handleMarkAttendance(env, request) {
-  const { student, deviceId, isProtected: protectedFlag } = await request.json();
-  const clientIP = request.headers.get('CF-Connecting-IP');
-  const today = new Date().toISOString().split('T')[0];
-  const deviceHash = hashDeviceId(clientIP, deviceId, today);
-
-  const attendance = (await env.ATTENDANCE_KV.get('attendance', { type: 'json' })) || [];
-  const ipLog = (await env.ATTENDANCE_KV.get('ip_device_log', { type: 'json' })) || [];
-
-  // Protected students can mark unlimited times
-  if (!protectedFlag && !isProtected(student.index)) {
-    // Check if already marked today
-    const alreadyMarked = attendance.some(
-      (a) => a.index === student.index && a.date === today
-    );
-    if (alreadyMarked) {
-      return {
-        success: false,
-        message: 'You have already marked attendance today.',
-      };
-    }
-
-    // Check if device/IP already used today
-    const deviceUsed = ipLog.some((log) => log.deviceHash === deviceHash);
-    if (deviceUsed) {
-      return {
-        success: false,
-        message: 'This device has already been used to mark attendance today.',
-      };
-    }
-  }
-
-  // Mark attendance
-  attendance.push({
-    id: crypto.randomUUID(),
-    name: student.name,
-    index: student.index,
-    date: today,
-    timestamp: new Date().toISOString(),
-    ip: clientIP,
-    deviceHash,
-  });
-
-  ipLog.push({
-    deviceHash,
-    ip: clientIP,
-    studentIndex: student.index,
-    date: today,
-    timestamp: new Date().toISOString(),
-  });
-
-  await env.ATTENDANCE_KV.put('attendance', JSON.stringify(attendance));
-  await env.ATTENDANCE_KV.put('ip_device_log', JSON.stringify(ipLog));
-  await logActivity(env, 'ATTENDANCE_MARKED', { student, ip: clientIP });
-
-  return { success: true };
-}
-
-async function handleAdminLogin(env, request) {
-  const { pincode } = await request.json();
-  const clientIP = request.headers.get('CF-Connecting-IP');
-
-  if (pincode !== ADMIN_PINCODE) {
-    return { success: false, message: 'Invalid PINCODE' };
-  }
-
-  // Create session token
-  const sessionToken = crypto.randomUUID();
-  const sessions = (await env.ATTENDANCE_KV.get('admin_sessions', { type: 'json' })) || [];
-
-  sessions.push({
-    token: sessionToken,
-    ip: clientIP,
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
-  });
-
-  await env.ATTENDANCE_KV.put('admin_sessions', JSON.stringify(sessions));
-  await logActivity(env, 'ADMIN_LOGIN', { ip: clientIP });
-
-  return { success: true, sessionToken };
-}
-
-async function verifyAdminSession(env, request) {
-  const sessionToken = request.headers.get('Authorization');
-  if (!sessionToken) return false;
-
-  const sessions = (await env.ATTENDANCE_KV.get('admin_sessions', { type: 'json' })) || [];
-  const session = sessions.find((s) => s.token === sessionToken);
-
-  if (!session) return false;
-  if (new Date(session.expiresAt) < new Date()) return false;
-
-  return true;
-}
-
-async function handleAdminGetData(env) {
-  const students = (await env.ATTENDANCE_KV.get('students', { type: 'json' })) || [];
-  const attendance = (await env.ATTENDANCE_KV.get('attendance', { type: 'json' })) || [];
-  const blacklist = (await env.ATTENDANCE_KV.get('blacklist', { type: 'json' })) || [];
-  const fraudAttempts =
-    (await env.ATTENDANCE_KV.get('fraud_attempts', { type: 'json' })) || [];
-  const activityLogs =
-    (await env.ATTENDANCE_KV.get('activity_logs', { type: 'json' })) || [];
-  const attendanceEnabled =
-    (await env.ATTENDANCE_KV.get('attendance_enabled')) === 'true';
-  const strictMode = (await env.ATTENDANCE_KV.get('strict_mode')) === 'true';
-
-  const today = new Date().toISOString().split('T')[0];
-
-  // Always include protected students in attendance
-  const protectedStudentsList = students.filter((s) => isProtected(s.index));
-  
-  const studentsWithStatus = students.map((s) => {
-    const hasAttended = attendance.some((a) => a.index === s.index && a.date === today);
-    const isProtectedStudent = isProtected(s.index);
-    
-    return {
-      ...s,
-      attended: hasAttended || isProtectedStudent, // Protected always show as attended
-      blacklisted: blacklist.some(
-        (b) => b.index === s.index && b.status === 'active'
-      ),
-      protected: isProtectedStudent,
-    };
-  });
-
+// CORS headers
+function corsHeaders() {
   return {
-    success: true,
-    students: studentsWithStatus,
-    blacklist,
-    fraudAttempts,
-    activityLogs: activityLogs.slice(-50), // Last 50 logs
-    attendanceEnabled,
-    strictMode,
-    contactInfo: COURSE_REPS,
-  };
-}
-
-async function handleBulkUpload(env, request) {
-  const { data } = await request.json();
-  const lines = data.split('\n').filter((l) => l.trim());
-
-  const students = (await env.ATTENDANCE_KV.get('students', { type: 'json' })) || [];
-  let count = 0;
-
-  for (const line of lines) {
-    const match = line.match(/^(.+?)\s*-\s*(\d+)$/);
-    if (match) {
-      const [, name, index] = match;
-      if (!students.some((s) => s.index === index.trim())) {
-        students.push({ name: name.trim(), index: index.trim() });
-        count++;
-      }
-    }
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
   }
-
-  await env.ATTENDANCE_KV.put('students', JSON.stringify(students));
-  await logActivity(env, 'BULK_UPLOAD', { count });
-
-  return { success: true, count };
 }
 
-async function handleAddStudent(env, request) {
-  const { name, index } = await request.json();
-  const students = (await env.ATTENDANCE_KV.get('students', { type: 'json' })) || [];
-
-  if (students.some((s) => s.index === index)) {
-    return { success: false, message: 'Student already exists' };
-  }
-
-  students.push({ name, index });
-  await env.ATTENDANCE_KV.put('students', JSON.stringify(students));
-  await logActivity(env, 'ADD_STUDENT', { name, index });
-
-  return { success: true };
-}
-
-async function handleDeleteStudent(env, request) {
-  const { index } = await request.json();
-
-  if (isProtected(index)) {
-    return {
-      success: false,
-      message: 'Access denied go and sit down',
-    };
-  }
-
-  const students = (await env.ATTENDANCE_KV.get('students', { type: 'json' })) || [];
-  const filtered = students.filter((s) => s.index !== index);
-  await env.ATTENDANCE_KV.put('students', JSON.stringify(filtered));
-  await logActivity(env, 'DELETE_STUDENT', { index });
-
-  return { success: true };
-}
-
-async function handleToggleAttendance(env, request) {
-  const { enabled } = await request.json();
-  await env.ATTENDANCE_KV.put('attendance_enabled', enabled ? 'true' : 'false');
-  await logActivity(env, 'TOGGLE_ATTENDANCE', { enabled });
-  return { success: true };
-}
-
-async function handleToggleStrictMode(env, request) {
-  const { enabled } = await request.json();
-  await env.ATTENDANCE_KV.put('strict_mode', enabled ? 'true' : 'false');
-  await logActivity(env, 'TOGGLE_STRICT_MODE', { enabled });
-  return { success: true };
-}
-
-async function handleBlacklist(env, request) {
-  const { index, reason, duration } = await request.json();
-
-  if (isProtected(index)) {
-    return { success: false, message: 'Cannot blacklist protected student' };
-  }
-
-  const blacklist = (await env.ATTENDANCE_KV.get('blacklist', { type: 'json' })) || [];
-  const students = (await env.ATTENDANCE_KV.get('students', { type: 'json' })) || [];
-  const student = students.find((s) => s.index === index);
-
-  if (!student) {
-    return { success: false, message: 'Student not found' };
-  }
-
-  let expiryDate = 'indefinite';
-  if (duration && duration !== 'indefinite') {
-    const days = parseInt(duration);
-    expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-  }
-
-  blacklist.push({
-    id: crypto.randomUUID(),
-    name: student.name,
-    index: student.index,
-    reason: reason || 'Admin action',
-    date: new Date().toISOString().split('T')[0],
-    expiryDate,
-    status: 'active',
-  });
-
-  await env.ATTENDANCE_KV.put('blacklist', JSON.stringify(blacklist));
-  await logActivity(env, 'BLACKLIST_STUDENT', { student, reason, duration });
-
-  return { success: true };
-}
-
-async function handleUnblacklist(env, request) {
-  const { id } = await request.json();
-  const blacklist = (await env.ATTENDANCE_KV.get('blacklist', { type: 'json' })) || [];
-  const filtered = blacklist.filter((b) => b.id !== id);
-  await env.ATTENDANCE_KV.put('blacklist', JSON.stringify(filtered));
-  await logActivity(env, 'UNBLACKLIST_STUDENT', { id });
-  return { success: true };
-}
-
-async function handleClearAttendance(env) {
-  const today = new Date().toISOString().split('T')[0];
-  const attendance = (await env.ATTENDANCE_KV.get('attendance', { type: 'json' })) || [];
-  const filtered = attendance.filter((a) => a.date !== today);
-  await env.ATTENDANCE_KV.put('attendance', JSON.stringify(filtered));
-  
-  const ipLog = (await env.ATTENDANCE_KV.get('ip_device_log', { type: 'json' })) || [];
-  const filteredLog = ipLog.filter((log) => log.date !== today);
-  await env.ATTENDANCE_KV.put('ip_device_log', JSON.stringify(filteredLog));
-  
-  await logActivity(env, 'CLEAR_ATTENDANCE', { date: today });
-  return { success: true };
-}
-
-async function handleRemoveRestriction(env, request) {
-  const { index, all } = await request.json();
-  const today = new Date().toISOString().split('T')[0];
-
-  if (all) {
-    // Clear all restrictions for today
-    await env.ATTENDANCE_KV.put('attendance', JSON.stringify([]));
-    await env.ATTENDANCE_KV.put('ip_device_log', JSON.stringify([]));
-    await logActivity(env, 'REMOVE_ALL_RESTRICTIONS', {});
+// Verify PIN based on search type
+function verifyPIN(student, pin, pinType) {
+  if (pinType === "surname") {
+    const lastName = student.name.split(" ").pop()
+    const first4 = lastName.slice(0, 4).toUpperCase()
+    return pin.toUpperCase() === first4
   } else {
-    // Clear for specific student
-    const attendance =
-      (await env.ATTENDANCE_KV.get('attendance', { type: 'json' })) || [];
-    const filtered = attendance.filter(
-      (a) => !(a.index === index && a.date === today)
-    );
-    await env.ATTENDANCE_KV.put('attendance', JSON.stringify(filtered));
-    await logActivity(env, 'REMOVE_RESTRICTION', { index });
+    const last5 = student.indexNumber.slice(-5)
+    return pin === last5
   }
-
-  return { success: true };
 }
 
-async function handleGetCourseReps() {
-  return { success: true, courseReps: COURSE_REPS };
-}
-
-// Main request handler
 export default {
-  async fetch(request, env, ctx) {
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
-    }
+  async fetch(request) {
+    const url = new URL(request.url)
+    const path = url.pathname
 
-    const url = new URL(request.url);
-    const path = url.pathname;
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders() })
+    }
 
     try {
-      let response;
-
-      // Public routes
-      if (path === '/api/get-stats') {
-        response = await handleGetStats(env);
-      } else if (path === '/api/search-student') {
-        response = await handleSearchStudent(env, request);
-      } else if (path === '/api/verify-student') {
-        response = await handleVerifyStudent(env, request);
-      } else if (path === '/api/mark-attendance') {
-        response = await handleMarkAttendance(env, request);
-      } else if (path === '/api/admin-login') {
-        response = await handleAdminLogin(env, request);
-      } else if (path === '/api/get-course-reps') {
-        response = await handleGetCourseReps();
-      }
-      // Protected admin routes
-      else if (await verifyAdminSession(env, request)) {
-        if (path === '/api/admin-get-data') {
-          response = await handleAdminGetData(env);
-        } else if (path === '/api/admin-bulk-upload') {
-          response = await handleBulkUpload(env, request);
-        } else if (path === '/api/admin-add-student') {
-          response = await handleAddStudent(env, request);
-        } else if (path === '/api/admin-delete-student') {
-          response = await handleDeleteStudent(env, request);
-        } else if (path === '/api/admin-toggle-attendance') {
-          response = await handleToggleAttendance(env, request);
-        } else if (path === '/api/admin-toggle-strict-mode') {
-          response = await handleToggleStrictMode(env, request);
-        } else if (path === '/api/admin-blacklist') {
-          response = await handleBlacklist(env, request);
-        } else if (path === '/api/admin-unblacklist') {
-          response = await handleUnblacklist(env, request);
-        } else if (path === '/api/admin-clear-attendance') {
-          response = await handleClearAttendance(env);
-        } else if (path === '/api/admin-remove-restriction') {
-          response = await handleRemoveRestriction(env, request);
-        } else {
-          response = { success: false, message: 'Endpoint not found' };
+      // GET /api/get-stats
+      if (path === "/api/get-stats" && request.method === "GET") {
+        const data = await getPastebinData()
+        if (!data.settings.attendanceStarted) {
+          return new Response(JSON.stringify({
+            success: true,
+            total: 0,
+            present: 0,
+            attendanceStarted: false,
+          }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
         }
-      } else {
-        return new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), {
+        const today = new Date().toISOString().split("T")[0]
+        const todayAttendance = data.attendance.filter(a => a.date === today)
+        return new Response(JSON.stringify({
+          success: true,
+          total: data.students.length,
+          present: todayAttendance.length,
+          attendanceStarted: true,
+        }), {
+          headers: { ...corsHeaders(), "Content-Type": "application/json" },
+        })
+      }
+
+      // GET /api/get-students
+      if (path === "/api/get-students" && request.method === "GET") {
+        const data = await getPastebinData()
+        return new Response(JSON.stringify({
+          success: true,
+          students: data.students,
+        }), {
+          headers: { ...corsHeaders(), "Content-Type": "application/json" },
+        })
+      }
+
+      // POST /api/verify-pin
+      if (path === "/api/verify-pin" && request.method === "POST") {
+        const body = await request.json()
+        const data = await getPastebinData()
+        const student = data.students.find(s => 
+          s.indexNumber === body.studentId || s.id === body.studentId
+        )
+        if (!student) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: "Student not found"
+          }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        const isBlacklisted = data.blacklist.some(b => 
+          b.studentId === student.indexNumber && b.status === "active"
+        )
+        if (isBlacklisted) {
+          return new Response(JSON.stringify({
+            success: false,
+            blacklisted: true,
+            message: "You have been blacklisted"
+          }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        const isPinValid = verifyPIN(student, body.pin, body.pinType)
+        if (!isPinValid) {
+          return new Response(JSON.stringify({
+            success: false,
+            strikes: 1,
+            message: "Invalid PIN"
+          }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({
+          success: true,
+          student: student
+        }), {
+          headers: { ...corsHeaders(), "Content-Type": "application/json" },
+        })
+      }
+
+      // POST /api/mark-attendance
+      if (path === "/api/mark-attendance" && request.method === "POST") {
+        const body = await request.json()
+        const data = await getPastebinData()
+        if (!data.settings.attendanceEnabled && !PROTECTED_STUDENTS.includes(body.studentId)) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: "Attendance is currently disabled"
+          }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        const today = new Date().toISOString().split("T")[0]
+        const alreadyMarkedBySelf = data.attendance.some(a => 
+          a.studentId === body.studentId && a.date === today
+        )
+        if (alreadyMarkedBySelf && !PROTECTED_STUDENTS.includes(body.studentId)) {
+          return new Response(JSON.stringify({
+            success: false,
+            alreadyMarked: true,
+            message: "You have already marked attendance for today"
+          }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        const deviceAttendance = data.attendance.filter(a => 
+          a.date === today && 
+          (a.deviceId === body.deviceId || a.ipInfo === body.ipInfo)
+        )
+        if (deviceAttendance.length > 0) {
+          const existingStudent = deviceAttendance[0]
+          if (existingStudent.studentId !== body.studentId) {
+            const fraudAttempts = data.fraudAttempts.filter(f => 
+              f.deviceId === body.deviceId && 
+              f.timestamp.startsWith(today)
+            )
+            if (fraudAttempts.length === 0) {
+              const attempt = {
+                id: Math.random().toString(36).substring(2),
+                attemptedStudent: body.studentName,
+                attemptedStudentId: body.studentId,
+                actualStudent: existingStudent.studentName,
+                actualStudentId: existingStudent.studentId,
+                ipInfo: body.ipInfo,
+                deviceId: body.deviceId,
+                timestamp: new Date().toISOString(),
+                strike: 1,
+              }
+              data.fraudAttempts.push(attempt)
+              await updatePastebin(data)
+              return new Response(JSON.stringify({
+                success: false,
+                fraud: true,
+                strike: 1,
+                message: "⚠️ FRAUD ALERT!\n\nThis device has already marked attendance for " + existingStudent.studentName + " today.\n\nAttempting to mark for another student is strictly prohibited.\n\n🚨 THIS IS YOUR FIRST AND FINAL WARNING!\n\nIf you try this again, you will be BLACKLISTED immediately and your attendance will be VOIDED."
+              }), {
+                status: 403,
+                headers: { ...corsHeaders(), "Content-Type": "application/json" },
+              })
+            }
+            if (fraudAttempts.length >= 1) {
+              const blacklistEntry = {
+                id: Math.random().toString(36).substring(2),
+                studentId: body.studentId,
+                studentName: body.studentName,
+                duration: "indefinite",
+                reason: "Attempted to mark attendance for multiple students",
+                addedAt: new Date().toISOString(),
+                status: "active",
+              }
+              data.blacklist.push(blacklistEntry)
+              data.attendance = data.attendance.filter(a => 
+                !(a.date === today && (
+                  a.studentId === body.studentId || 
+                  a.studentId === existingStudent.studentId
+                ))
+              )
+              const finalAttempt = {
+                id: Math.random().toString(36).substring(2),
+                attemptedStudent: body.studentName,
+                attemptedStudentId: body.studentId,
+                actualStudent: existingStudent.studentName,
+                actualStudentId: existingStudent.studentId,
+                ipInfo: body.ipInfo,
+                deviceId: body.deviceId,
+                timestamp: new Date().toISOString(),
+                strike: 2,
+                action: "BLACKLISTED",
+              }
+              data.fraudAttempts.push(finalAttempt)
+              await updatePastebin(data)
+              return new Response(JSON.stringify({
+                success: false,
+                blacklisted: true,
+                strike: 2,
+                message: "🚫 YOU HAVE BEEN BLACKLISTED!\n\nYou were warned but chose to violate the rules again.\n\n📋 CONSEQUENCES:\n• You have been BLACKLISTED indefinitely\n• Your attendance for today has been VOIDED\n• " + existingStudent.studentName + "'s attendance has been VOIDED\n• This incident has been logged\n\n⚖️ Reason: Attempted to mark attendance for multiple students using the same device.\n\nContact the administrator if you believe this is an error."
+              }), {
+                status: 403,
+                headers: { ...corsHeaders(), "Content-Type": "application/json" },
+              })
+            }
+          }
+        }
+        if (!data.settings.attendanceStarted) {
+          data.settings.attendanceStarted = true
+        }
+        const record = {
+          id: Math.random().toString(36).substring(2),
+          studentId: body.studentId,
+          studentName: body.studentName,
+          indexNumber: body.indexNumber,
+          ipInfo: body.ipInfo || "Unknown",
+          deviceId: body.deviceId || "Unknown",
+          timestamp: new Date().toISOString(),
+          date: today,
+        }
+        data.attendance.push(record)
+        const success = await updatePastebin(data)
+        if (success) {
+          return new Response(JSON.stringify({
+            success: true,
+            record
+          }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        throw new Error("Failed to mark attendance")
+      }
+
+      // Admin endpoints
+      if (path === "/api/admin/login" && request.method === "POST") {
+        const body = await request.json()
+        if (body.pincode === ADMIN_PINCODE) {
+          return new Response(JSON.stringify({
+            success: true,
+            message: "Login successful"
+          }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({
+          success: false,
+          message: "Invalid PIN code"
+        }), {
           status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+          headers: { ...corsHeaders(), "Content-Type": "application/json" },
+        })
       }
 
-      return new Response(JSON.stringify(response), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    } catch (error) {
-      return new Response(
-        JSON.stringify({ success: false, message: error.message }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      if (path === "/api/admin/get-all-data" && request.method === "GET") {
+        const data = await getPastebinData()
+        return new Response(JSON.stringify({
+          success: true,
+          students: data.students,
+          attendance: data.attendance,
+          blacklist: data.blacklist,
+          settings: data.settings,
+          fraudAttempts: data.fraudAttempts,
+        }), {
+          headers: { ...corsHeaders(), "Content-Type": "application/json" },
+        })
+      }
+
+      if (path === "/api/admin/toggle-attendance" && request.method === "POST") {
+        const body = await request.json()
+        const data = await getPastebinData()
+        data.settings.attendanceEnabled = body.enabled
+        if (body.enabled) {
+          data.settings.attendanceStarted = true
         }
-      );
+        const success = await updatePastebin(data)
+        if (success) {
+          return new Response(JSON.stringify({
+            success: true,
+            enabled: body.enabled
+          }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        throw new Error("Failed to toggle attendance")
+      }
+
+      if (path === "/api/admin/add-student" && request.method === "POST") {
+        const body = await request.json()
+        const data = await getPastebinData()
+        const student = {
+          id: body.indexNumber,
+          name: body.name,
+          indexNumber: body.indexNumber,
+          createdAt: new Date().toISOString(),
+        }
+        data.students.push(student)
+        const success = await updatePastebin(data)
+        if (success) {
+          return new Response(JSON.stringify({
+            success: true,
+            student
+          }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        throw new Error("Failed to add student")
+      }
+
+      if (path === "/api/admin/bulk-add-students" && request.method === "POST") {
+        const body = await request.json()
+        const data = await getPastebinData()
+        const newStudents = body.students.map(s => ({
+          id: s.indexNumber,
+          name: s.name,
+          indexNumber: s.indexNumber,
+          createdAt: new Date().toISOString(),
+        }))
+        data.students.push(...newStudents)
+        const success = await updatePastebin(data)
+        if (success) {
+          return new Response(JSON.stringify({
+            success: true,
+            added: newStudents.length
+          }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        throw new Error("Failed to bulk add students")
+      }
+
+      if (path === "/api/admin/delete-student" && request.method === "POST") {
+        const body = await request.json()
+        const data = await getPastebinData()
+        if (PROTECTED_STUDENTS.includes(body.studentId)) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: "Cannot delete protected student"
+          }), {
+            status: 403,
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        data.students = data.students.filter(s => s.indexNumber !== body.studentId)
+        const success = await updatePastebin(data)
+        if (success) {
+          return new Response(JSON.stringify({ success: true }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        throw new Error("Failed to delete student")
+      }
+
+      if (path === "/api/admin/blacklist-student" && request.method === "POST") {
+        const body = await request.json()
+        const data = await getPastebinData()
+        if (PROTECTED_STUDENTS.includes(body.studentId)) {
+          return new Response(JSON.stringify({
+            success: false,
+            message: "Cannot blacklist protected student"
+          }), {
+            status: 403,
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        const entry = {
+          id: Math.random().toString(36).substring(2),
+          studentId: body.studentId,
+          duration: body.duration,
+          addedAt: new Date().toISOString(),
+          status: "active",
+        }
+        data.blacklist.push(entry)
+        const success = await updatePastebin(data)
+        if (success) {
+          return new Response(JSON.stringify({ success: true }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        throw new Error("Failed to blacklist student")
+      }
+
+      if (path === "/api/admin/unblacklist-student" && request.method === "POST") {
+        const body = await request.json()
+        const data = await getPastebinData()
+        data.blacklist = data.blacklist.filter(b => b.studentId !== body.studentId)
+        const success = await updatePastebin(data)
+        if (success) {
+          return new Response(JSON.stringify({ success: true }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        throw new Error("Failed to unblacklist student")
+      }
+
+      if (path === "/api/admin/clear-attendance" && request.method === "POST") {
+        const data = await getPastebinData()
+        data.attendance = []
+        data.settings.attendanceStarted = false
+        const success = await updatePastebin(data)
+        if (success) {
+          return new Response(JSON.stringify({ success: true }), {
+            headers: { ...corsHeaders(), "Content-Type": "application/json" },
+          })
+        }
+        throw new Error("Failed to clear attendance")
+      }
+
+      return new Response(JSON.stringify({ 
+        error: "Endpoint not found",
+        path: path 
+      }), {
+        status: 404,
+        headers: { ...corsHeaders(), "Content-Type": "application/json" },
+      })
+
+    } catch (error) {
+      return new Response(JSON.stringify({ 
+        error: error.message 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders(), "Content-Type": "application/json" },
+      })
     }
   },
-};
+}

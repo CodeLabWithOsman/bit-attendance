@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mark Attendance - BIT GROUP C</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="dark-theme">
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="index.html">BIT ATTENDANCE</a>
+            </div>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-menu" id="navMenu">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="attendance.html" class="nav-link active">Mark Attendance</a>
+                <a href="about.html" class="nav-link">About</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Alert Container -->
+    <div id="alertContainer" style="position: fixed; top: 80px; right: 20px; z-index: 9999; max-width: 400px;"></div>
+
+    <!-- Attendance Section -->
+    <div class="attendance-container">
+        <div class="attendance-card">
+            <div class="attendance-header">
+                <h1 class="attendance-title gradient-text">Mark Your Attendance</h1>
+                <p class="attendance-subtitle">Search for your name or index number, then verify with your PIN</p>
+                <p class="hero-time" id="currentTime">--:--:--</p>
+            </div>
+
+            <form id="attendanceForm">
+                <!-- Search Section -->
+                <div class="search-container">
+                    <div class="search-group">
+                        <input 
+                            type="text" 
+                            id="searchInput" 
+                            class="search-input" 
+                            placeholder="Search by name or index number..."
+                            autocomplete="off"
+                        >
+                        <div id="suggestionsList" class="suggestions-list" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <!-- Selected Student Info -->
+                <div id="selectedStudentInfo"></div>
+
+                <!-- PIN Section -->
+                <div id="pinContainer" style="display: none;">
+                    <div class="pin-container">
+                        <input 
+                            type="password" 
+                            id="pinInput" 
+                            class="pin-input" 
+                            placeholder="Enter your PIN"
+                            maxlength="5"
+                            pattern="[0-9]{5}"
+                        >
+                        <p id="pinHint" class="pin-hint">Enter the last 5 digits of your index number</p>
+                        
+                        <button type="submit" id="submitBtn" class="btn btn-primary" style="width: 100%;">
+                            Mark Attendance
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Instructions -->
+            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-color);">
+                <h3 style="color: var(--text-primary); margin-bottom: 1rem;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    Instructions
+                </h3>
+                <ol style="color: var(--text-secondary); line-height: 2; padding-left: 1.5rem;">
+                    <li>Search for your name or index number in the search box</li>
+                    <li>Select your name from the suggestions</li>
+                    <li>Enter the last 5 digits of your index number as PIN</li>
+                    <li>Click "Mark Attendance" to submit</li>
+                    <li>You can only mark attendance once per day</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/navigation.js"></script>
+    <script src="js/attendance.js"></script>
+</body>
+</html>
